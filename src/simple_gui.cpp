@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <SDL/SDL.h>
 
 #include <GL/gl.h>
@@ -97,7 +100,12 @@ static void display_scene() {
 }
 
 int main(int argc, char** argv) {
-  if (!fdisp.init()) {
+  if (argc != 2) {
+    fprintf(stderr, "usage: %s PATH/TO/0002.p\n", argv[0]);
+    exit(1);
+  }
+
+  if (!fdisp.init(argv[1])) {
     return 0;
   }
 
