@@ -4,7 +4,7 @@
 
 #include <png.h>
 
-#include <gl.h>
+#include <GL/gl.h>
 
 bool Texture::init_gl() {
 	if (m_8bpp) {
@@ -158,7 +158,7 @@ bool Texture::save_to_png(const char *filename, unsigned int *palette) {
 
 	png_init_io(png_write, file);
 
-	png_set_compression_level(png_write, Z_BEST_COMPRESSION);
+	png_set_compression_level(png_write, 9);
 	png_set_IHDR(png_write, png_info, m_width, m_height, 8,
 		m_8bpp?PNG_COLOR_TYPE_PALETTE:PNG_COLOR_TYPE_RGB_ALPHA,
 		PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,

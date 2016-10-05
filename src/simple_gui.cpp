@@ -1,7 +1,7 @@
-#include <SDL.h>
+#include <SDL/SDL.h>
 
-#include <gl.h>
-#include <glext.h>
+#include <GL/gl.h>
+#include <GL/glext.h>
 
 #include "mbaa_framedisplay.h"
 #include "mbaacc_framedisplay.h"

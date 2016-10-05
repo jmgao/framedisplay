@@ -5,7 +5,7 @@
 // font file and color code is Spront's.
 // solid box rendering code is Tropsy's.
 
-#include <gl.h>
+#include <GL/gl.h>
 
 #include <cstdarg>
 #include <cstdlib>

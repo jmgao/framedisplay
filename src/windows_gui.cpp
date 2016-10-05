@@ -18,7 +18,7 @@
 #include <commctrl.h>
 #include <shlobj.h>
 
-#include <gl.h>
+#include <GL/gl.h>
 
 #include "framedisplay.h"
 #include "clone.h"
