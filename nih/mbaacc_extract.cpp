@@ -28,40 +28,6 @@ static const char* basename(const char* name) {
 }
 #endif
 
-static void decrapt(char* data, uint32_t size, uint32_t encrypted_length, uint32_t xorkey,
-                    uint32_t xormod) {
-  union {
-    uint32_t key;
-    struct {
-      unsigned char a;
-      unsigned char b;
-      unsigned char c;
-      unsigned char d;
-    } b;
-  } key_a;
-  uint32_t key_b;
-
-  key_a.key = xorkey;
-
-  key_b = xormod & 0xff;
-  if (key_b == 0) {
-    key_b = 1;
-  }
-
-  size = std::min(size, encrypted_length);
-
-  uint32_t* p = (uint32_t*)data;
-  size = (size + 3) / 4;
-  for (size_t i = 0; i < size; ++i) {
-    *p++ ^= key_a.key;
-
-    key_a.b.a += key_b;
-    key_a.b.b += key_b;
-    key_a.b.c += key_b;
-    key_a.b.d += key_b;
-  }
-}
-
 int main(int argc, char* argv[]) {
   progname = basename(argv[0]);
 
