@@ -8,6 +8,11 @@
 #include <algorithm>
 #include <memory>
 
+#include "mbaacc_pack.h"
+#include "util/fatal.h"
+
+const char* progname;
+
 #if defined(_WIN32)
 #define TEMP_FAILURE_RETRY(x) x
 static const char* basename(const char* name) {
@@ -57,75 +62,11 @@ static void decrapt(char* data, uint32_t size, uint32_t encrypted_length, uint32
   }
 }
 
-namespace mbaacc {
-#pragma pack(push, 1)
-struct PackHeader {
-  char name[16];
-  uint32_t flag;
-  uint32_t xor_key;
-  uint32_t data_offset;
-  uint32_t data_size;
-  uint32_t folder_count;
-  uint32_t file_count;
-  uint32_t unknown[2];
-  uint32_t encrypted_length;
-
-  void dump(FILE* out = stderr) const {
-    fprintf(out, "PackHeader:\n");
-    fprintf(out, "  name: %.*s\n", int(sizeof(name)), name);
-    fprintf(out, "  flag: %#x\n", flag);
-    fprintf(out, "  xor_key: %#x\n", xor_key);
-    fprintf(out, "  data_offset: %u\n", data_offset);
-    fprintf(out, "  data_size: %u\n", data_size);
-    fprintf(out, "  folder_count: %u\n", folder_count);
-    fprintf(out, "  file_count: %u\n", file_count);
-    fprintf(out, "  unknown[0]: %#x\n", unknown[0]);
-    fprintf(out, "  unknown[1]: %#x\n", unknown[1]);
-    fprintf(out, "  encrypted_length: %#x\n", encrypted_length);
-  }
-};
-
-struct FolderIndex {
-  uint32_t offset;
-  uint32_t file_start_id;
-  uint32_t size;
-  char filename[256];
-
-  void dump(FILE* out = stderr) const {
-    fprintf(out, "FolderIndex:\n");
-    fprintf(out, "  name: %.*s\n", int(sizeof(filename)), filename);
-    fprintf(out, "  offset: %u\n", offset);
-    fprintf(out, "  file_start_id: %u\n", file_start_id);
-    fprintf(out, "  size: %u\n", size);
-  }
-};
-
-struct FileIndex {
-  uint32_t offset;
-  uint32_t folder_id;
-  uint32_t size;
-  char filename[32];
-
-  void dump(uint32_t file_id = UINT32_MAX, FILE* out = stderr) const {
-    if (file_id == UINT32_MAX) {
-      fprintf(out, "FileIndex(?):\n");
-    } else {
-      fprintf(out, "FileIndex(%u):\n", file_id);
-    }
-
-    fprintf(out, "  name: %.*s\n", int(sizeof(filename)), filename);
-    fprintf(out, "  offset: %u\n", offset);
-    fprintf(out, "  folder_id: %u\n", folder_id);
-    fprintf(out, "  size: %u\n", size);
-  }
-};
-#pragma pack(pop)
-}
-
 int main(int argc, char* argv[]) {
-  const char* progname = basename(argv[0]);
-  if (argc != 2 && argc != 3) {
-    fprintf(stderr, "usage: %s FILE.p [FILE_TO_EXTRACT]\n", progname);
+  progname = basename(argv[0]);
+
+  if (argc < 2 || argc > 4) {
+    fprintf(stderr, "usage: %s FILE.p [FILE_TO_EXTRACT] [OUTPUT FILE NAME]\n", progname);
     exit(1);
   }
 
@@ -133,58 +74,54 @@ int main(int argc, char* argv[]) {
   FILE* file = fopen(filename, "rb");
 
   if (!file) {
-    fprintf(stderr, "%s: failed to open '%s': %s\n", progname, filename, strerror(errno));
-    exit(1);
+    fatal_errno("failed to open '%s'", filename);
   }
 
-  mbaacc::PackHeader header;
-  assert(fread(&header, sizeof(header), 1, file) == 1);
-  header.dump();
+  mbaacc::Pack pack(unique_fd(dup(fileno(file))));
 
-  auto folders = std::make_unique<mbaacc::FolderIndex[]>(header.folder_count);
-  assert(folders);
-  assert(fread(folders.get(), sizeof(*folders.get()), header.folder_count, file) ==
-         header.folder_count);
-  for (size_t i = 0; i < header.folder_count; ++i) {
-    decrapt(folders[i].filename, sizeof(folders[i].filename), header.encrypted_length,
-            header.xor_key, folders[i].size);
-    folders[i].dump();
-  }
+  gsl::span<mbaacc::FolderIndex> folders = pack.folders();
+  gsl::span<mbaacc::FileIndex> files = pack.files();
+  if (argc == 2) {
+    pack.header().dump();
+    for (const auto& folder : folders) {
+      folder.dump();
+    }
 
-  auto files = std::make_unique<mbaacc::FileIndex[]>(header.file_count);
-  assert(fread(files.get(), sizeof(*files.get()), header.file_count, file) == header.file_count);
-
-  for (size_t i = 0; i < header.file_count; ++i) {
-    decrapt(files[i].filename, sizeof(files[i].filename), header.encrypted_length, header.xor_key,
-            files[i].size);
-    files[i].dump(i);
-  }
-
-  off_t current_offset = ftello(file);
-  assert(current_offset == header.data_offset);
-
-  if (argc == 3) {
-    for (size_t i = 0; i < header.file_count; ++i) {
+    for (size_t i = 0; i < files.size(); ++i) {
+      files[i].dump(i);
+    }
+  } else {
+    for (size_t i = 0; i < files.size(); ++i) {
       if (strcmp(argv[2], files[i].filename) == 0) {
-        fseek(file, header.data_offset + files[i].offset, SEEK_SET);
-        auto buf = std::make_unique<char[]>(files[i].size);
-        assert(fread(buf.get(), 1, files[i].size, file) == files[i].size);
-        decrapt(buf.get(), files[i].size, header.encrypted_length, header.xor_key, 0x03 /* ??? */);
-
-        char* p = buf.get();
-        size_t len = files[i].size;
-        while (len > 0) {
-          ssize_t rc = TEMP_FAILURE_RETRY(write(STDOUT_FILENO, p, len));
-          if (rc < 0) {
-            fprintf(stderr, "%s: write failed: %s\n", progname, strerror(errno));
-            exit(1);
-          }
-          len -= rc;
+        uint32_t folder_id = files[i].folder_id;
+        if (folder_id >= folders.size()) {
+          fatal("file %zu references a non-existent folder", i);
         }
+
+        gsl::span<char> file_data = pack.file_data(i);
+        size_t len = file_data.size();
+        const char* p = file_data.begin();
+
+        std::string filename(files[i].filename, sizeof(files[i].filename));
+        const char* output_path = basename(filename.c_str());
+        if (argc == 4) {
+          output_path = argv[3];
+        }
+
+        FILE* out = fopen(output_path, "wb");
+        if (!out) {
+          fatal_errno("failed to open output path '%s'", output_path);
+        }
+
+        fprintf(stderr, "Saving %.*s\\%.*s to %s\n", int(sizeof(folders[folder_id].filename)),
+                folders[folder_id].filename, int(sizeof(files[i].filename)), files[i].filename,
+                output_path);
+
+        fwrite(p, 1, len, out);
+        fclose(out);
         exit(0);
       }
     }
-    fprintf(stderr, "%s: failed to find '%s'\n", progname, argv[2]);
-    exit(1);
+    fatal("%s: failed to find '%s'", progname, argv[2]);
   }
 }
