@@ -1,12 +1,27 @@
 #include <assert.h>
-#include <err.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <memory>
+
+#if defined(_WIN32)
+#define TEMP_FAILURE_RETRY(x) x
+static const char* basename(const char* name) {
+  size_t len = strlen(name);
+  const char* end = name + len;
+  auto rbegin = std::reverse_iterator<const char*>(end);
+  auto rend = std::reverse_iterator<const char*>(name);
+  auto it = std::find(rbegin, rend, '\\');
+  if (it == rend) {
+    return name;
+  }
+  return &*it + 1;
+}
+#endif
 
 static void decrapt(char* data, uint32_t size, uint32_t encrypted_length, uint32_t xorkey,
                     uint32_t xormod) {
@@ -108,8 +123,9 @@ struct FileIndex {
 }
 
 int main(int argc, char* argv[]) {
+  const char* progname = basename(argv[0]);
   if (argc != 2 && argc != 3) {
-    fprintf(stderr, "usage: %s FILE.p [FILE_TO_EXTRACT]\n", argv[0]);
+    fprintf(stderr, "usage: %s FILE.p [FILE_TO_EXTRACT]\n", progname);
     exit(1);
   }
 
@@ -117,7 +133,8 @@ int main(int argc, char* argv[]) {
   FILE* file = fopen(filename, "rb");
 
   if (!file) {
-    err(1, "failed to open '%s'", filename);
+    fprintf(stderr, "%s: failed to open '%s': %s\n", progname, filename, strerror(errno));
+    exit(1);
   }
 
   mbaacc::PackHeader header;
@@ -159,13 +176,15 @@ int main(int argc, char* argv[]) {
         while (len > 0) {
           ssize_t rc = TEMP_FAILURE_RETRY(write(STDOUT_FILENO, p, len));
           if (rc < 0) {
-            err(1, "write failed");
+            fprintf(stderr, "%s: write failed: %s\n", progname, strerror(errno));
+            exit(1);
           }
           len -= rc;
         }
         exit(0);
       }
     }
-    errx(1, "failed to find '%s'", argv[2]);
+    fprintf(stderr, "%s: failed to find '%s'\n", progname, argv[2]);
+    exit(1);
   }
 }
