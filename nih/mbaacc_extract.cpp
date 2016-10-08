@@ -8,7 +8,8 @@
 
 #include <memory>
 
-static void decrapt(char* data, uint32_t size, uint32_t xorkey, uint32_t xormod) {
+static void decrapt(char* data, uint32_t size, uint32_t encrypted_length, uint32_t xorkey,
+                    uint32_t xormod) {
   union {
     uint32_t key;
     struct {
@@ -27,10 +28,7 @@ static void decrapt(char* data, uint32_t size, uint32_t xorkey, uint32_t xormod)
     key_b = 1;
   }
 
-  // Only applies to the first 4096 bytes of data.
-  if (size > 4096) {
-    size = 4096;
-  }
+  size = std::min(size, encrypted_length);
 
   uint32_t* p = (uint32_t*)data;
   size = (size + 3) / 4;
@@ -54,7 +52,8 @@ struct PackHeader {
   uint32_t data_size;
   uint32_t folder_count;
   uint32_t file_count;
-  uint32_t unknown[3];
+  uint32_t unknown[2];
+  uint32_t encrypted_length;
 
   void dump(FILE* out = stderr) const {
     fprintf(out, "PackHeader:\n");
@@ -67,7 +66,7 @@ struct PackHeader {
     fprintf(out, "  file_count: %u\n", file_count);
     fprintf(out, "  unknown[0]: %#x\n", unknown[0]);
     fprintf(out, "  unknown[1]: %#x\n", unknown[1]);
-    fprintf(out, "  unknown[2]: %#x\n", unknown[2]);
+    fprintf(out, "  encrypted_length: %#x\n", encrypted_length);
   }
 };
 
@@ -130,7 +129,8 @@ int main(int argc, char* argv[]) {
   assert(fread(folders.get(), sizeof(*folders.get()), header.folder_count, file) ==
          header.folder_count);
   for (size_t i = 0; i < header.folder_count; ++i) {
-    decrapt(folders[i].filename, sizeof(folders[i].filename), header.xor_key, folders[i].size);
+    decrapt(folders[i].filename, sizeof(folders[i].filename), header.encrypted_length,
+            header.xor_key, folders[i].size);
     folders[i].dump();
   }
 
@@ -138,7 +138,8 @@ int main(int argc, char* argv[]) {
   assert(fread(files.get(), sizeof(*files.get()), header.file_count, file) == header.file_count);
 
   for (size_t i = 0; i < header.file_count; ++i) {
-    decrapt(files[i].filename, sizeof(files[i].filename), header.xor_key, files[i].size);
+    decrapt(files[i].filename, sizeof(files[i].filename), header.encrypted_length, header.xor_key,
+            files[i].size);
     files[i].dump(i);
   }
 
@@ -151,7 +152,7 @@ int main(int argc, char* argv[]) {
         fseek(file, header.data_offset + files[i].offset, SEEK_SET);
         auto buf = std::make_unique<char[]>(files[i].size);
         assert(fread(buf.get(), 1, files[i].size, file) == files[i].size);
-        decrapt(buf.get(), files[i].size, header.xor_key, 0x03 /* ??? */);
+        decrapt(buf.get(), files[i].size, header.encrypted_length, header.xor_key, 0x03 /* ??? */);
 
         char* p = buf.get();
         size_t len = files[i].size;
