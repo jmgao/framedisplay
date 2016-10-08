@@ -128,7 +128,9 @@ Pack::~Pack() {
 #endif
 }
 
-PackHeader& Pack::header() const { return *reinterpret_cast<PackHeader*>(pack_file_data_); }
+PackHeader& Pack::header() const {
+  return *reinterpret_cast<PackHeader*>(pack_file_data_);
+}
 
 gsl::span<FolderIndex> Pack::folders() const {
   FolderIndex* folder_start = reinterpret_cast<FolderIndex*>(pack_file_data_ + sizeof(PackHeader));
