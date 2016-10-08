@@ -43,7 +43,7 @@ static void decrapt(char* data, uint32_t size, uint32_t encrypted_length, uint32
 
   size = std::min(size, encrypted_length);
 
-  uint32_t* p = (uint32_t*)data;
+  uint32_t* p = reinterpret_cast<uint32_t*>(data);
   size = (size + 3) / 4;
   for (size_t i = 0; i < size; ++i) {
     *p++ ^= key_a.key;
@@ -187,4 +187,4 @@ gsl::span<char> Pack::file_data(uint32_t file_id) {
 
   return gsl::span<char>(start, file_size);
 }
-}
+} /* namespace mbaacc */

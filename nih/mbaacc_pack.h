@@ -78,7 +78,7 @@ struct FileIndex {
 
 class Pack {
  public:
-  Pack(unique_fd fd);
+  explicit Pack(unique_fd fd);
   Pack(const Pack& copy) = delete;
   Pack(Pack&& move);
   ~Pack();
@@ -103,4 +103,4 @@ class Pack {
   HANDLE file_mapping_;
 #endif
 };
-}
+} /* namespace mbaacc */
