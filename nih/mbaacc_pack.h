@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <vector>
 #include <gsl.h>
@@ -25,8 +26,13 @@ struct PackHeader {
   uint32_t unknown[2];
   uint32_t encrypted_length;
 
-  void dump(FILE* out = stderr) const {
-    fprintf(out, "PackHeader:\n");
+  void dump(const char* filename = nullptr, FILE* out = stderr) const {
+    if (filename) {
+      fprintf(out, "PackHeader(%s):\n", filename);
+    } else {
+      fprintf(out, "PackHeader:\n");
+    }
+
     fprintf(out, "  name: %.*s\n", int(sizeof(name)), name);
     fprintf(out, "  flag: %#x\n", flag);
     fprintf(out, "  xor_key: %#x\n", xor_key);
@@ -41,17 +47,31 @@ struct PackHeader {
 };
 
 struct FolderIndex {
+  // None of these fields seem to be reliably set, aside from the name.
   uint32_t offset;
   uint32_t file_start_id;
   uint32_t size;
   char filename[256];
 
-  void dump(FILE* out = stderr) const {
-    fprintf(out, "FolderIndex:\n");
-    fprintf(out, "  name: %.*s\n", int(sizeof(filename)), filename);
-    fprintf(out, "  offset: %u\n", offset);
-    fprintf(out, "  file_start_id: %u\n", file_start_id);
-    fprintf(out, "  size: %u\n", size);
+  void dump(uint32_t folder_id = UINT32_MAX, FILE* out = stderr) const {
+    if (folder_id == UINT32_MAX) {
+      fprintf(out, "FolderIndex(?):\n");
+    } else {
+      fprintf(out, "FolderIndex(%u):\n", folder_id);
+    }
+    if (bogus()) {
+      fprintf(out, "  BOGUS\n");
+    } else {
+      fprintf(out, "  name: %.*s\n", int(sizeof(filename)), filename);
+      fprintf(out, "  offset: %u\n", offset);
+      fprintf(out, "  file_start_id: %u\n", file_start_id);
+      fprintf(out, "  size: %u\n", size);
+    }
+  }
+
+  bool bogus() const {
+    char empty[256] = {};
+    return offset == 0 && file_start_id == 0 && size == 0 && memcmp(empty, filename, 256) == 0;
   }
 };
 

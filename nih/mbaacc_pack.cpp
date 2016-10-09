@@ -119,12 +119,41 @@ Pack::Pack(unique_fd _) : fd_(std::move(_)) {
   file_decrypted_.resize(header().file_count);
 }
 
+Pack::Pack(Pack&& move) {
+  this->operator=(std::move(move));
+}
+
+Pack& Pack::operator=(Pack&& move) {
+  this->fd_ = std::move(move.fd_);
+
+  this->pack_file_size_ = move.pack_file_size_;
+  move.pack_file_size_ = 0;
+
+  this->pack_file_data_ = move.pack_file_data_;
+  move.pack_file_data_ = nullptr;
+
+  this->file_decrypted_.swap(move.file_decrypted_);
+
+#if defined(_WIN32)
+  this->file_mapping_ = move.file_mapping_;
+  move.file_mapping_ = nullptr;
+#endif
+
+  return *this;
+}
+
 Pack::~Pack() {
 #if defined(_WIN32)
-  UnmapViewOfFile(pack_file_data_);
-  CloseHandle(file_mapping_);
+  if (pack_file_data_) {
+    UnmapViewOfFile(pack_file_data_);
+  }
+  if (file_mapping_) {
+    CloseHandle(file_mapping_);
+  }
 #else
-  munmap(pack_file_data_, pack_file_size_);
+  if (pack_file_data_) {
+    munmap(pack_file_data_, pack_file_size_);
+  }
 #endif
 }
 
