@@ -112,6 +112,8 @@ class Pack {
 
   gsl::span<char> file_data(uint32_t file_id);
 
+  bool write(FILE* out);
+
  private:
   unique_fd fd_;
   size_t pack_file_size_;

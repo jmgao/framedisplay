@@ -218,4 +218,45 @@ gsl::span<char> Pack::file_data(uint32_t file_id) {
 
   return gsl::span<char>(start, file_size);
 }
+
+bool Pack::write(FILE* out) {
+  if (fwrite(&header(), sizeof(PackHeader), 1, out) != 1) {
+    return false;
+  }
+
+  // Encrypt FolderIndexes.
+  for (FolderIndex& folder : folders()) {
+    FolderIndex temp = folder;
+    decrapt(temp.filename, sizeof(temp.filename), header().encrypted_length, header().xor_key,
+            temp.size);
+    if (fwrite(&temp, sizeof(temp), 1, out) != 1) {
+      return false;
+    }
+  }
+
+  // Encrypt FileIndexes.
+  for (FileIndex& file : files()) {
+    FileIndex temp = file;
+    decrapt(temp.filename, sizeof(temp.filename), header().encrypted_length, header().xor_key,
+            temp.size);
+    if (fwrite(&temp, sizeof(temp), 1, out) != 1) {
+      return false;
+    }
+  }
+
+  // Reencrypt all decrypted files.
+  for (size_t i = 0; i < header().file_count; ++i) {
+    if (file_decrypted_[i]) {
+      decrapt(file_data(i).data(), files()[i].size, header().encrypted_length, header().xor_key,
+              0x03);
+      file_decrypted_[i] = false;
+    }
+  }
+
+  if (fwrite(pack_file_data_ + header().data_offset, header().data_size, 1, out) != 1) {
+    return false;
+  }
+
+  return true;
+}
 } /* namespace mbaacc */

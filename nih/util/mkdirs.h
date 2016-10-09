@@ -23,7 +23,14 @@
 
 inline bool directory_exists(const std::string& path) {
   struct stat sb;
-  return stat(path.c_str(), &sb) != -1 && S_ISDIR(sb.st_mode);
+  if (stat(path.c_str(), &sb) == -1) {
+    return false;
+  }
+  if (!S_ISDIR(sb.st_mode)) {
+    errno = ENOTDIR;
+    return false;
+  }
+  return true;
 }
 
 #if defined(_WIN32)
