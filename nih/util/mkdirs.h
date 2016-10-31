@@ -21,6 +21,13 @@
 
 #include <string>
 
+#if defined(_WIN32)
+#define PATH_SEPARATOR "\\"
+#define TEMP_FAILURE_RETRY(x) x
+#else
+#define PATH_SEPARATOR "/"
+#endif
+
 inline bool directory_exists(const std::string& path) {
   struct stat sb;
   if (stat(path.c_str(), &sb) == -1) {

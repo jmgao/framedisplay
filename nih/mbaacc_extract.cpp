@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <libgen.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +10,7 @@
 #include <algorithm>
 #include <memory>
 
+#include "mbaacc_fs.h"
 #include "mbaacc_pack.h"
 #include "util/fatal.h"
 #include "util/mkdirs.h"
@@ -16,33 +18,29 @@
 
 const char* progname;
 
-#if defined(_WIN32)
-#define PATH_SEPARATOR "\\"
-#define TEMP_FAILURE_RETRY(x) x
-#else
-#define PATH_SEPARATOR "/"
-#endif
-
 enum class Operation {
   NONE,
   EXTRACT,
+  CREATE,
   LIST,
-  DUMP,
-  UPDATE,
 };
 
+static constexpr long kDefaultLastPackFile = 8;
+
 [[noreturn]] static void usage(int exit_code) {
-  fprintf(stderr, "usage: %s [OPTION]... PACK_FILE...\n", progname);
+  fprintf(stderr, "usage: %s [OPTION]... PACK_FILE_DIR\n", progname);
   fprintf(stderr, "Operation mode:\n");
-  fprintf(stderr, "  -x\t\t\textract the contents of the specified pack file(s)\n");
-  fprintf(stderr, "  -t\t\t\tlist the contents of the specified pack file(s)\n");
-  // fprintf(stderr, "  -c DIR\t\tcreate new packfile with changed files in DIR (experimental)\n");
-  fprintf(stderr, "  -u DIR\t\tupdate packfile with changed files in DIR (experimental)\n");
-  fprintf(stderr, "  -d\t\t\tdump pack file headers\n");
+  fprintf(stderr, "  -x\t\textract the contents of the pack files in PACK_FILE_DIR\n");
+  fprintf(stderr, "    \t\toutput path defaults to ./out/\n");
+  fprintf(stderr, "  -c DIR\tcreate pack file updating PACK_FILE_DIR files to DIR\n");
+  fprintf(stderr, "    \t\toutput path defaults to PACK_FILE_DIR/LAST_PACK + 1.p\n");
+  fprintf(stderr, "  -t\t\tlist the contents of the pack files in PACK_FILE_DIR\n");
   fprintf(stderr, "\n");
   fprintf(stderr, "Options:\n");
-  fprintf(stderr, "  -o DIR/FILE\t\tspecify output directory for -x, output file for -u\n");
-  fprintf(stderr, "  -h\t\t\tdisplays this message\n");
+  fprintf(stderr, "  -o\t\toutput path for -x/-c\n");
+  fprintf(stderr, "  -m LAST_PACK\tset the last pack file index to use\n");
+  fprintf(stderr, "    \t\tdefaults to ∞ for -x/-c, %ld for -c\n", kDefaultLastPackFile);
+  fprintf(stderr, "  -h\t\tdisplays this message\n");
   exit(exit_code);
 }
 
@@ -54,35 +52,42 @@ static void check_op(Operation* op) {
 }
 
 static bool parse_args(int argc, char* argv[], Operation* op, std::string* output_path,
-                       std::vector<gsl::zstring>* pack_file_paths,
-                       std::string* update_output_path) {
-  gsl::zstring output_dir_opt = nullptr;
+                       std::string* comparison_path, gsl::zstring* pack_file_dir,
+                       long* max_packfile) {
+  bool found_output_path = false;
+  *max_packfile = -1;
+
   int opt;
-  while ((opt = getopt(argc, argv, "xtu:do:h")) != -1) {
+  while ((opt = getopt(argc, argv, "xc:to:mh")) != -1) {
     switch (opt) {
       case 'x':
         check_op(op);
         *op = Operation::EXTRACT;
         break;
+      case 'c':
+        check_op(op);
+        *op = Operation::CREATE;
+        *comparison_path = optarg;
+        break;
       case 't':
         check_op(op);
         *op = Operation::LIST;
         break;
-      case 'u':
-        check_op(op);
-        *op = Operation::UPDATE;
-        *update_output_path = optarg;
-        break;
-      case 'd':
-        check_op(op);
-        *op = Operation::DUMP;
-        break;
       case 'o':
-        if (output_dir_opt) {
-          fprintf(stderr, "%s: -o specified multiple times\n", progname);
+        if (found_output_path) {
+          fatal("output path specified multiple times");
         }
-        output_dir_opt = optarg;
+        found_output_path = true;
+        *output_path = optarg;
         break;
+      case 'm': {
+        char* endptr;
+        *max_packfile = strtol(optarg, &endptr, 10);
+        if (*max_packfile < 0 || *endptr != '\0') {
+          fatal("invalid argument to -m: '%s'", optarg);
+        }
+        break;
+      }
       case 'h':
         usage(0);
         break;
@@ -92,41 +97,53 @@ static bool parse_args(int argc, char* argv[], Operation* op, std::string* outpu
         break;
     }
   }
-  if (!output_dir_opt) {
-    *output_path = ".";
-  } else {
-    // Make sure that the parent of the output dir exists.
-    if (!directory_exists(dirname(output_dir_opt))) {
-      fatal_errno("parent of output directory must be a directory");
-    }
-    *output_path = output_dir_opt;
-  }
 
   if (*op == Operation::NONE) {
     usage(0);
   }
 
-  // Check if we can access all of the files before we try to open any of them.
-  for (int i = optind; i < argc; ++i) {
-    pack_file_paths->push_back(argv[i]);
-    if (access(argv[i], R_OK)) {
-      fatal_errno("can't access '%s'", argv[i]);
+  if (output_path->empty()) {
+    if (*op == Operation::CREATE) {
+      char buf[strlen("0000.p") + 1];
+      snprintf(buf, sizeof(buf), "%04ld.p", *max_packfile);
+      *output_path = std::string(*pack_file_dir) + PATH_SEPARATOR + buf;
+    } else {
+      *output_path = "./out/";
     }
   }
 
-  if (pack_file_paths->size() == 0) {
-    usage(0);
-  } else if (pack_file_paths->size() != 1 && *op == Operation::UPDATE) {
-    fprintf(stderr, "%s: update currently only supports one pack file at a time.\n", progname);
+  // Make sure that the parent of the output dir exists.
+  std::string path_copy = *output_path;
+  if (!directory_exists(dirname(&path_copy[0]))) {
+    fatal_errno("invalid output directory");
+  }
+
+  // Make sure the comparison path exists.
+  if (*op == Operation::CREATE) {
+    path_copy = *comparison_path;
+    if (!directory_exists(dirname(&path_copy[0]))) {
+      fatal_errno("invalid comparison directory");
+    }
+  }
+
+  // Make sure that the pack file directory exists.
+  if (optind != argc - 1) {
     usage(1);
   }
 
-  if (*op == Operation::UPDATE) {
-    if (!directory_exists(*update_output_path)) {
-      fatal_errno("invalid update directory '%s'", update_output_path->c_str());
+  if (!directory_exists(argv[optind])) {
+    fatal_errno("can't access '%s'", argv[optind]);
+  }
+
+  if (*max_packfile == -1) {
+    if (*op == Operation::CREATE) {
+      *max_packfile = kDefaultLastPackFile;
+    } else {
+      *max_packfile = LONG_MAX;
     }
   }
 
+  *pack_file_dir = argv[optind];
   return true;
 }
 
@@ -135,142 +152,55 @@ int main(int argc, char* argv[]) {
 
   Operation op = Operation::NONE;
   std::string output_path;
-  std::vector<gsl::zstring> pack_file_paths;
-  std::string update_output_path;
+  std::string comparison_path;
+  gsl::zstring pack_file_dir;
+  long max_packfile = -1;
 
-  if (!parse_args(argc, argv, &op, &output_path, &pack_file_paths, &update_output_path)) {
+  if (!parse_args(argc, argv, &op, &output_path, &comparison_path, &pack_file_dir, &max_packfile)) {
     fatal("failed to parse arguments");
   }
 
-  std::vector<mbaacc::Pack> packs;
-  for (gsl::zstring pack_file_path : pack_file_paths) {
-    FILE* file = fopen(pack_file_path, "rb");
-    if (!file) {
-      fatal_errno("failed to open '%s'", pack_file_path);
+  mbaacc::FS fs;
+  for (long i = 1; i <= max_packfile; ++i) {
+    // TODO: PATH_MAX is a lie, but doing this correctly in a cross-platform way is annoying:
+    //       openat on linux/darwin, UNC paths on windows
+    char path_buf[PATH_MAX];
+    auto rc = snprintf(path_buf, sizeof(path_buf), "%s%s%04ld.p", pack_file_dir, PATH_SEPARATOR, i);
+    if (rc >= PATH_MAX) {
+      fatal("path buffer overflow");
     }
-    packs.emplace_back(unique_fd(dup(fileno(file))));
+
+    FILE* file = fopen(path_buf, "rb");
+    if (!file) {
+      if (op == Operation::CREATE || i == 1) {
+        fatal_errno("failed to open '%s'", path_buf);
+      }
+      max_packfile = i - 1;
+      break;
+    }
+
+    fprintf(stderr, "reading packfile at %s\n", path_buf);
+    auto pack = std::make_unique<mbaacc::Pack>(unique_fd(dup(fileno(file))));
+    fs.AddPack(std::move(pack));
     fclose(file);
   }
 
-  for (size_t pack_index = 0; pack_index < packs.size(); ++pack_index) {
-    gsl::zstring pack_file_name = basename(pack_file_paths[pack_index]);
-    mbaacc::Pack& pack = packs[pack_index];
-
-    gsl::span<mbaacc::FolderIndex> folders = pack.folders();
-    gsl::span<mbaacc::FileIndex> files = pack.files();
-
-    if (op == Operation::DUMP) {
-      if (op == Operation::DUMP) {
-        pack.header().dump(pack_file_name);
-      }
-
-      for (size_t folder_index = 0; folder_index < folders.size(); ++folder_index) {
-        folders[folder_index].dump(folder_index);
-      }
-
-      for (size_t file_index = 0; file_index < files.size(); ++file_index) {
-        files[file_index].dump(file_index);
-      }
-      continue;
+  switch (op) {
+    case Operation::EXTRACT: {
+      return fs.Extract(output_path) ? 0 : 1;
     }
 
-    for (size_t folder_index = 0; folder_index < folders.size(); ++folder_index) {
-      mbaacc::FolderIndex& folder = folders[folder_index];
-      std::vector<gsl::cstring_span> dir_path_fragments =
-          Split(gsl::cstring_span(folder.filename), "\\");
-
-      // Make sure there's nothing tricky in the directory path like "..".
-      for (gsl::cstring_span fragment : dir_path_fragments) {
-        if (strcmp(fragment.data(), "..") == 0) {
-          fatal("directory name contains '..': %.*s", int(sizeof(folder.filename)),
-                folder.filename);
-        }
-      }
-
-      std::string normalized_dir_path = Join(dir_path_fragments, PATH_SEPARATOR);
-      std::string output_dir = output_path + PATH_SEPARATOR;
-      std::string update_dir = update_output_path + PATH_SEPARATOR;
-      if (!normalized_dir_path.empty()) {
-        output_dir += normalized_dir_path + PATH_SEPARATOR;
-        update_dir += normalized_dir_path + PATH_SEPARATOR;
-      }
-
-      if (op == Operation::LIST) {
-        printf("%-12s  dir %10u %.*s\\\n", pack_file_name, 0u, int(sizeof(folder.filename)),
-               folder.filename);
-      } else if (op == Operation::EXTRACT) {
-        if (!mkdirs(output_dir)) {
-          fatal_errno("failed to create directory '%s'", output_dir.c_str());
-        }
-      }
-
-      // We can't trust the FolderIndex entries to be accurate, so we need to iterate through the
-      // files at least once. The file counts are generally pretty low, so just do this repeatedly.
-      for (size_t file_index = 0; file_index < files.size(); ++file_index) {
-        mbaacc::FileIndex& file = files[file_index];
-        if (file.folder_id != folder_index) {
-          continue;
-        }
-
-        if (op == Operation::LIST) {
-          printf("%-12s file %10u %.*s\\%.*s\n", pack_file_name, file.size,
-                 int(sizeof(folder.filename)), folder.filename, int(sizeof(file.filename)),
-                 file.filename);
-          continue;
-        }
-
-        gsl::span<char> file_data = pack.file_data(file_index);
-        if (op == Operation::EXTRACT) {
-          printf("%.*s\\%.*s\n", int(sizeof(folder.filename)), folder.filename,
-                 int(sizeof(file.filename)), file.filename);
-          std::string file_path = output_dir;
-          file_path.append(file.filename, strnlen(file.filename, sizeof(file.filename)));
-
-          FILE* f = fopen(file_path.c_str(), "wb");
-          if (!f) {
-            fatal("failed to open file for writing '%s'", file_path.c_str());
-          }
-          if (fwrite(file_data.data(), 1, file_data.length(), f) != file_data.length()) {
-            fatal("failed to write file");
-          }
-          fclose(f);
-        } else if (op == Operation::UPDATE) {
-          std::string file_path = update_dir;
-          file_path.append(file.filename, strnlen(file.filename, sizeof(file.filename)));
-
-          FILE* f = fopen(file_path.c_str(), "rb");
-          if (!f) {
-            fatal("failed to open file for reading '%s'", file_path.c_str());
-          }
-
-          struct stat st;
-          if (fstat(fileno(f), &st) != 0) {
-            fatal_errno("failed to stat file '%s'", file_path.c_str());
-          }
-
-          if (size_t(st.st_size) != file.size) {
-            fatal("file '%.*s\\%.*s' has differing size: %u in pack, %zu on filesystem",
-                  int(sizeof(folder.filename)), folder.filename, int(sizeof(file.filename)),
-                  file.filename, file.size, size_t(st.st_size));
-          }
-
-          if (fread(file_data.data(), 1, file_data.length(), f) != file_data.length()) {
-            fatal("failed to read file");
-          }
-
-          fclose(f);
-        }
-      }
+    case Operation::LIST: {
+      fatal("-t unimplemented");
+      break;
     }
 
-    if (op == Operation::UPDATE) {
-      FILE* out = fopen(output_path.c_str(), "wb");
-      if (!pack.write(out)) {
-        fatal("failed to write updated pack file");
-      }
-      fclose(out);
-      fprintf(stderr, "%s: successfully wrote updated packfile to '%s'\n", progname,
-              output_path.c_str());
+    case Operation::CREATE: {
+      // TODO: Output to a file.
+      return fs.GenerateUpdatePack(stdout, comparison_path) ? 0 : 1;
     }
+
+    case Operation::NONE:
+      fatal("operation not set?");
   }
 }
