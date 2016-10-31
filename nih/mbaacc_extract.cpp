@@ -60,7 +60,7 @@ static bool parse_args(int argc, char* argv[], Operation* op, std::string* outpu
   *max_packfile = -1;
 
   int opt;
-  while ((opt = getopt(argc, argv, "xc:tdo:mh")) != -1) {
+  while ((opt = getopt(argc, argv, "xc:tdo:m:h")) != -1) {
     switch (opt) {
       case 'x':
         check_op(op);
@@ -106,10 +106,26 @@ static bool parse_args(int argc, char* argv[], Operation* op, std::string* outpu
     usage(0);
   }
 
+  // Make sure that the packfile directory exists.
+  if (optind != argc - 1) {
+    usage(1);
+  }
+  *pack_file_dir = argv[optind];
+
+  // Set the max packfile if unset.
+  if (*max_packfile == -1) {
+    if (*op == Operation::CREATE) {
+      *max_packfile = kDefaultLastPackFile;
+    } else {
+      *max_packfile = LONG_MAX;
+    }
+  }
+
+  // Generate the output path if unset.
   if (output_path->empty()) {
     if (*op == Operation::CREATE) {
       char buf[strlen("0000.p") + 1];
-      snprintf(buf, sizeof(buf), "%04ld.p", *max_packfile);
+      snprintf(buf, sizeof(buf), "%04ld.p", *max_packfile + 1);
       *output_path = std::string(*pack_file_dir) + PATH_SEPARATOR + buf;
     } else {
       *output_path = "./out/";
@@ -130,24 +146,10 @@ static bool parse_args(int argc, char* argv[], Operation* op, std::string* outpu
     }
   }
 
-  // Make sure that the packfile directory exists.
-  if (optind != argc - 1) {
-    usage(1);
-  }
-
   if (!directory_exists(argv[optind])) {
     fatal_errno("can't access '%s'", argv[optind]);
   }
 
-  if (*max_packfile == -1) {
-    if (*op == Operation::CREATE) {
-      *max_packfile = kDefaultLastPackFile;
-    } else {
-      *max_packfile = LONG_MAX;
-    }
-  }
-
-  *pack_file_dir = argv[optind];
   return true;
 }
 
