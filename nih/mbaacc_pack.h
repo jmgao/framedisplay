@@ -26,7 +26,7 @@ struct PackHeader {
   uint32_t unknown[2];
   uint32_t encrypted_length;
 
-  void dump(const char* filename = nullptr, FILE* out = stderr) const {
+  void dump(const char* filename = nullptr, FILE* out = stdout) const {
     if (filename) {
       fprintf(out, "PackHeader(%s):\n", filename);
     } else {
@@ -53,7 +53,7 @@ struct FolderIndex {
   uint32_t size;
   char filename[256];
 
-  void dump(uint32_t folder_id = UINT32_MAX, FILE* out = stderr) const {
+  void dump(uint32_t folder_id = UINT32_MAX, FILE* out = stdout) const {
     if (folder_id == UINT32_MAX) {
       fprintf(out, "FolderIndex(?):\n");
     } else {
@@ -81,7 +81,7 @@ struct FileIndex {
   uint32_t size;
   char filename[32];
 
-  void dump(uint32_t file_id = UINT32_MAX, FILE* out = stderr) const {
+  void dump(uint32_t file_id = UINT32_MAX, FILE* out = stdout) const {
     if (file_id == UINT32_MAX) {
       fprintf(out, "FileIndex(?):\n");
     } else {
@@ -97,6 +97,9 @@ struct FileIndex {
 #pragma pack(pop)
 
 class Pack {
+  // Create a Pack file to be written into.
+  Pack(size_t size);
+
  public:
   explicit Pack(unique_fd fd);
   Pack(const Pack& copy) = delete;
@@ -113,6 +116,14 @@ class Pack {
   gsl::span<char> file_data(uint32_t file_id);
 
   bool write(FILE* out);
+
+  void AssumeDecrypted(uint32_t file_count) {
+    file_decrypted_.resize(file_count, true);
+  }
+
+  static Pack Create(size_t size) {
+    return Pack(size);
+  }
 
  private:
   unique_fd fd_;

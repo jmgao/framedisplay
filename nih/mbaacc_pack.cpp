@@ -119,6 +119,15 @@ Pack::Pack(unique_fd _) : fd_(std::move(_)) {
   file_decrypted_.resize(header().file_count);
 }
 
+Pack::Pack(size_t size) : pack_file_size_(size) {
+#if defined(_WIN32)
+  fatal("implement me");
+#else
+  pack_file_data_ = reinterpret_cast<char*>(
+      mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
+#endif
+}
+
 Pack::Pack(Pack&& move) {
   this->operator=(std::move(move));
 }
@@ -189,6 +198,8 @@ gsl::span<char> Pack::file_data(uint32_t file_id) {
     fatal("file %u extends past the end of the packfile", file_id);
   }
 
+  // TODO: Only do these checks while parsing.
+#if 0
   if (file_id != 0) {
     uint32_t prev_offset = files()[file_id - 1].offset;
     uint32_t prev_size = files()[file_id - 1].size;
@@ -207,6 +218,7 @@ gsl::span<char> Pack::file_data(uint32_t file_id) {
             next_offset + next_size - 1);
     }
   }
+#endif
 
   char* start = pack_file_data_ + header().data_offset + file_offset;
 

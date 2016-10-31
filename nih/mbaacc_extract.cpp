@@ -208,8 +208,15 @@ int main(int argc, char* argv[]) {
     }
 
     case Operation::CREATE: {
-      // TODO: Output to a file.
-      return fs.GenerateUpdatePack(stdout, comparison_path) ? 0 : 1;
+      FILE* fp = fopen(output_path.c_str(), "wb");
+      if (!fp) {
+        fatal_errno("failed to open output file: %s", output_path.c_str());
+      }
+      if (!fs.GenerateUpdatePack(fp, comparison_path)) {
+        fatal("failed to generate update pack");
+      }
+      fclose(fp);
+      exit(0);
     }
 
     case Operation::LIST: {

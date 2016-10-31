@@ -1,5 +1,8 @@
 #include "mbaacc_fs.h"
 
+#include <assert.h>
+
+#include <algorithm>
 #include <functional>
 #include <string>
 #include <memory>
@@ -124,7 +127,7 @@ bool FS::Extract(const std::string& out) {
     output_root += PATH_SEPARATOR;
   }
 
-  auto previsit = [&output_root](const std::string& path, Directory* dir) {
+  auto previsit = [&output_root](const std::string& path, Directory*) {
     std::string dir_path = output_root + path;
     if (mkdir(dir_path.c_str(), 0700) != 0 && errno != EEXIST) {
       fatal("failed to create directory '%s'", output_root.c_str());
@@ -150,10 +153,175 @@ bool FS::Extract(const std::string& out) {
   return Walk(previsit, visit, postvisit);
 }
 
-bool FS::GenerateUpdatePack(FILE* output, const std::string& diff_path) {
-  // TODO: This only checks for changed files, not new ones. At least check and warn for new files?
+// Map of directory name -> file name -> vector<char>
+using ChangedFiles = std::map<std::string, std::map<std::string, std::vector<char>>>;
 
-  fatal("GenerateUpdatePack unimplemented");
+static ChangedFiles find_changed_files(FS* fs, const std::string& diff_path) {
+  // TODO: This only checks for changed files, not new ones. At least check and warn for new files?
+  ChangedFiles changed_files;
+  auto visit_directory = [](const std::string&, Directory*) { return true; };
+  auto visit_file = [&diff_path, &changed_files](const std::string& path, File* file) {
+    auto it = std::find(path.rbegin(), path.rend(), *PATH_SEPARATOR);
+    std::string::const_iterator last_separator;
+    if (it == path.rend()) {
+      last_separator = path.begin();
+    } else {
+      last_separator = (it + 1).base();
+    }
+    std::string directory_name(path.begin(), last_separator);
+    std::string file_name = file->name;
+    std::string file_path = diff_path + PATH_SEPARATOR + path;
+
+    // TODO: Do this with mmap.
+    std::unique_ptr<FILE, decltype(&fclose)> fp(fopen(file_path.c_str(), "rb"), fclose);
+    if (!fp) {
+      fatal_errno("failed to open file '%s'", file_path.c_str());
+    }
+
+    if (fseek(fp.get(), 0L, SEEK_END) != 0) {
+      fatal_errno("fseek failed");
+    }
+
+    off_t file_size = ftell(fp.get());
+    if (file_size == -1) {
+      fatal_errno("ftell failed");
+    }
+
+    rewind(fp.get());
+
+    // TODO: Provide a way to get the file size without decrypting the entire file.
+    gsl::span<char> canonical_data = file->Data();
+    std::vector<char> buf;
+
+    buf.resize(file_size);
+    if (fread(buf.data(), file_size, 1, fp.get()) != 1) {
+      fatal_errno("fread failed when trying to read %s", file_path.c_str());
+    }
+
+    if (canonical_data.size() != size_t(file_size)) {
+      goto different;
+    }
+
+    if (memcmp(buf.data(), canonical_data.data(), file_size) != 0) {
+      goto different;
+    }
+    return true;
+
+  different:
+    fprintf(stderr, "found changed file: %s\n", path.c_str());
+    changed_files[directory_name][file_name] = std::move(buf);
+    return true;
+  };
+
+  if (!fs->Walk(visit_directory, visit_file, visit_directory)) {
+    fatal("failed to walk MBACC filesystem");
+  }
+
+  return changed_files;
+}
+
+bool FS::GenerateUpdatePack(FILE* output, const std::string& diff_path) {
+  auto changed_files = find_changed_files(this, diff_path);
+  if (changed_files.empty()) {
+    fatal("no changed files detected, aborting");
+  }
+
+  // Reserve spots/a byte for PackDataVersion/pack_0008_version.txt.
+  size_t folders = changed_files.size() + 1;
+  size_t files = 1;
+  size_t data_size = 1;
+  for (const auto& folder_it : changed_files) {
+    for (const auto& file_it : folder_it.second) {
+      ++files;
+      data_size += file_it.second.size();
+    }
+  }
+
+  size_t hdr_size = sizeof(PackHeader) + folders * sizeof(FolderIndex) + files * sizeof(FileIndex);
+  size_t pack_size = hdr_size + data_size;
+  Pack pack = Pack::Create(pack_size);
+  PackHeader& header = pack.header();
+
+  snprintf(header.name, sizeof(header.name), "FilePacHeaderA");
+  header.flag = 1;
+  header.xor_key = 0x4f0c30f8; // ???
+  header.data_offset = hdr_size;
+  header.data_size = data_size;
+  printf("data_size = %zd\n", data_size);
+  header.folder_count = folders;
+  header.file_count = files;
+  header.unknown[0] = 1;
+  header.unknown[1] = 3;
+  header.encrypted_length = 0x1000;
+
+  pack.AssumeDecrypted(files);
+
+  {
+    // Create PackDataVersion/pack_0008_version.txt at the beginning.
+    FolderIndex& folder = pack.folders()[0];
+    snprintf(folder.filename, sizeof(folder.filename), ".\\PackDataVersion");
+    folder.offset = 0;
+    folder.file_start_id = 0;
+    folder.size = 1;
+
+    FileIndex& file = pack.files()[0];
+    snprintf(file.filename, sizeof(file.filename), "pack_0008_version.txt");
+    file.offset = 0;
+    file.folder_id = 0;
+    file.size = 1;
+    pack.file_data(0)[0] = '3';
+  }
+
+  ssize_t rc;
+  uint32_t folder_index = 1;
+  uint32_t file_index = 1;
+  size_t total_offset = 1;
+  for (const auto& folder_it : changed_files) {
+    uint32_t current_folder = folder_index++;
+    FolderIndex& folder = pack.folders()[current_folder];
+
+    // Properly mangle the directory name.
+    if (folder_it.first.empty()) {
+      folder.filename[0] = '.';
+    } else {
+      rc = snprintf(folder.filename, sizeof(folder.filename), ".\\%s", folder_it.first.c_str());
+      if (rc >= sizeof(folder.filename)) {
+        fatal("FolderIndex name overflow: %s", folder_it.first.c_str());
+      }
+
+      for (ssize_t i = 0; i < rc; ++i) {
+        if (folder.filename[i] == '/') {
+          folder.filename[i] = '\\';
+        }
+      }
+    }
+
+    folder.offset = total_offset;
+    folder.file_start_id = file_index;
+    folder.size = 0;
+    for (const auto& file_it : folder_it.second) {
+      uint32_t current_file = file_index++;
+      FileIndex& file = pack.files()[current_file];
+      rc = snprintf(file.filename, sizeof(file.filename), "%s", file_it.first.c_str());
+      if (rc >= sizeof(file.filename)) {
+        fatal("FileIndex name overflow: %s", file_it.first.c_str());
+      }
+
+      file.offset = total_offset;
+      file.folder_id = current_folder;
+      file.size = file_it.second.size();
+      folder.size += file_it.second.size();
+      total_offset += file_it.second.size();
+
+      printf("adding file %s\\%s, range = [%#x-%#x]\n", folder.filename, file.filename, file.offset, file.offset + file.size);
+
+      auto data = pack.file_data(current_file);
+      assert(data.size() == file_it.second.size());
+      memcpy(data.data(), file_it.second.data(), data.size());
+    }
+  }
+
+  return pack.write(output);
 }
 
 static bool recursive_walk(Directory* current, const std::string& path, FS::PreVisitDirectory pre,
