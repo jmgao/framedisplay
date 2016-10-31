@@ -34,7 +34,7 @@ inline bool directory_exists(const std::string& path) {
 }
 
 #if defined(_WIN32)
-int mkdir(const char* path, int /* mode */) {
+inline int mkdir(const char* path, int /* mode */) {
   return mkdir(path);
 }
 #endif

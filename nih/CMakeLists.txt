@@ -11,6 +11,10 @@ endif()
 
 include_directories(../deps/gsl-lite/include)
 
-add_library(mbaacc_pack STATIC mbaacc_pack.cpp)
+add_library(mbaacc_pack STATIC
+  mbaacc_pack.cpp
+  mbaacc_fs.cpp
+)
+
 add_executable(mbaacc_extract mbaacc_extract.cpp)
 target_link_libraries(mbaacc_extract mbaacc_pack)
