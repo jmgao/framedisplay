@@ -23,6 +23,7 @@ enum class Operation {
   EXTRACT,
   CREATE,
   LIST,
+  DUMP,
 };
 
 static constexpr long kDefaultLastPackFile = 8;
@@ -35,11 +36,12 @@ static constexpr long kDefaultLastPackFile = 8;
   fprintf(stderr, "  -c DIR\t\tcreate packfile updating PACK_FILE_DIR files to DIR\n");
   fprintf(stderr, "    \t\t\toutput path defaults to PACK_FILE_DIR/LAST_PACK + 1.p\n");
   fprintf(stderr, "  -t\t\t\tlist the contents of the packfiles in PACK_FILE_DIR\n");
+  fprintf(stderr, "  -d\t\t\tdump pack file headers in PACK_FILE_DIR\n");
   fprintf(stderr, "\n");
   fprintf(stderr, "Options:\n");
   fprintf(stderr, "  -o\t\t\toutput path for -x/-c\n");
   fprintf(stderr, "  -m LAST_PACK\t\tset the last packfile index to use\n");
-  fprintf(stderr, "    \t\t\tdefaults to ∞ for -x/-c, %ld for -c\n", kDefaultLastPackFile);
+  fprintf(stderr, "    \t\t\tdefaults to ∞ for -x/-t/-d, %ld for -c\n", kDefaultLastPackFile);
   fprintf(stderr, "  -h\t\t\tdisplays this message\n");
   exit(exit_code);
 }
@@ -58,7 +60,7 @@ static bool parse_args(int argc, char* argv[], Operation* op, std::string* outpu
   *max_packfile = -1;
 
   int opt;
-  while ((opt = getopt(argc, argv, "xc:to:mh")) != -1) {
+  while ((opt = getopt(argc, argv, "xc:tdo:mh")) != -1) {
     switch (opt) {
       case 'x':
         check_op(op);
@@ -72,6 +74,10 @@ static bool parse_args(int argc, char* argv[], Operation* op, std::string* outpu
       case 't':
         check_op(op);
         *op = Operation::LIST;
+        break;
+      case 'd':
+        check_op(op);
+        *op = Operation::DUMP;
         break;
       case 'o':
         if (found_output_path) {
@@ -90,11 +96,9 @@ static bool parse_args(int argc, char* argv[], Operation* op, std::string* outpu
       }
       case 'h':
         usage(0);
-        break;
       default:
         fprintf(stderr, "%s: unknown argument -%c\n", progname, opt);
         usage(1);
-        break;
     }
   }
 
@@ -181,6 +185,17 @@ int main(int argc, char* argv[]) {
 
     fprintf(stderr, "reading packfile at %s\n", path_buf);
     auto pack = std::make_unique<mbaacc::Pack>(unique_fd(dup(fileno(file))));
+
+    if (op == Operation::DUMP) {
+      pack->header().dump(path_buf);
+      for (int i = 0; i < pack->folders().size(); ++i) {
+        pack->folders()[i].dump(i);
+      }
+      for (int i = 0; i < pack->files().size(); ++i) {
+        pack->files()[i].dump(i);
+      }
+    }
+
     fs.AddPack(std::move(pack));
     fclose(file);
   }
@@ -190,14 +205,19 @@ int main(int argc, char* argv[]) {
       return fs.Extract(output_path) ? 0 : 1;
     }
 
+    case Operation::CREATE: {
+      // TODO: Output to a file.
+      return fs.GenerateUpdatePack(stdout, comparison_path) ? 0 : 1;
+    }
+
     case Operation::LIST: {
       fatal("-t unimplemented");
       break;
     }
 
-    case Operation::CREATE: {
-      // TODO: Output to a file.
-      return fs.GenerateUpdatePack(stdout, comparison_path) ? 0 : 1;
+    case Operation::DUMP: {
+      // We're already done.
+      exit(0);
     }
 
     case Operation::NONE:
