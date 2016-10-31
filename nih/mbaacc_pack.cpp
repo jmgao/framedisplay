@@ -77,7 +77,7 @@ Pack::Pack(unique_fd _) : fd_(std::move(_)) {
   // Sanity check lengths.
   size_t expected_size = sizeof(PackHeader);
   if (pack_file_size_ < expected_size) {
-    fatal("pack file not long enough to contain a PackHeader");
+    fatal("packfile not long enough to contain a PackHeader");
   }
 
   uint32_t folder_count = header().folder_count;
@@ -91,16 +91,16 @@ Pack::Pack(unique_fd _) : fd_(std::move(_)) {
 
   expected_size += sizeof(FolderIndex) * folder_count + sizeof(FileIndex) * file_count;
   if (pack_file_size_ < expected_size) {
-    fatal("pack file not long enough to contain all Folder/FileIndexes");
+    fatal("packfile not long enough to contain all Folder/FileIndexes");
   }
 
   if (expected_size != header().data_offset) {
-    fatal("pack file has gap between last file index and data");
+    fatal("packfile has gap between last file index and data");
   }
 
   expected_size += header().data_size;
   if (pack_file_size_ != expected_size) {
-    fatal("pack file expected to be %zu bytes long (actually %zu)", expected_size, pack_file_size_);
+    fatal("packfile expected to be %zu bytes long (actually %zu)", expected_size, pack_file_size_);
   }
 
   // Decrypt FolderIndexes.
@@ -186,7 +186,7 @@ gsl::span<char> Pack::file_data(uint32_t file_id) {
     fatal("file %u overflows (offset = %u, size = %u)", file_id, file_offset, file_size);
   }
   if (file_offset + file_size > pack_file_size_) {
-    fatal("file %u extends past the end of the pack file", file_id);
+    fatal("file %u extends past the end of the packfile", file_id);
   }
 
   if (file_id != 0) {

@@ -65,7 +65,7 @@ class File : public Node {
   uint32_t file_id_;
 };
 
-// Each MBAACC pack file is an overlay on top of the previous one.
+// Each MBAACC packfile is an overlay on top of the previous one.
 class FS {
  public:
   FS();

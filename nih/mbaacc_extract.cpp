@@ -30,17 +30,17 @@ static constexpr long kDefaultLastPackFile = 8;
 [[noreturn]] static void usage(int exit_code) {
   fprintf(stderr, "usage: %s [OPTION]... PACK_FILE_DIR\n", progname);
   fprintf(stderr, "Operation mode:\n");
-  fprintf(stderr, "  -x\t\textract the contents of the pack files in PACK_FILE_DIR\n");
-  fprintf(stderr, "    \t\toutput path defaults to ./out/\n");
-  fprintf(stderr, "  -c DIR\tcreate pack file updating PACK_FILE_DIR files to DIR\n");
-  fprintf(stderr, "    \t\toutput path defaults to PACK_FILE_DIR/LAST_PACK + 1.p\n");
-  fprintf(stderr, "  -t\t\tlist the contents of the pack files in PACK_FILE_DIR\n");
+  fprintf(stderr, "  -x\t\t\textract the contents of the packfiles in PACK_FILE_DIR\n");
+  fprintf(stderr, "    \t\t\toutput path defaults to ./out/\n");
+  fprintf(stderr, "  -c DIR\t\tcreate packfile updating PACK_FILE_DIR files to DIR\n");
+  fprintf(stderr, "    \t\t\toutput path defaults to PACK_FILE_DIR/LAST_PACK + 1.p\n");
+  fprintf(stderr, "  -t\t\t\tlist the contents of the packfiles in PACK_FILE_DIR\n");
   fprintf(stderr, "\n");
   fprintf(stderr, "Options:\n");
-  fprintf(stderr, "  -o\t\toutput path for -x/-c\n");
-  fprintf(stderr, "  -m LAST_PACK\tset the last pack file index to use\n");
-  fprintf(stderr, "    \t\tdefaults to ∞ for -x/-c, %ld for -c\n", kDefaultLastPackFile);
-  fprintf(stderr, "  -h\t\tdisplays this message\n");
+  fprintf(stderr, "  -o\t\t\toutput path for -x/-c\n");
+  fprintf(stderr, "  -m LAST_PACK\t\tset the last packfile index to use\n");
+  fprintf(stderr, "    \t\t\tdefaults to ∞ for -x/-c, %ld for -c\n", kDefaultLastPackFile);
+  fprintf(stderr, "  -h\t\t\tdisplays this message\n");
   exit(exit_code);
 }
 
@@ -126,7 +126,7 @@ static bool parse_args(int argc, char* argv[], Operation* op, std::string* outpu
     }
   }
 
-  // Make sure that the pack file directory exists.
+  // Make sure that the packfile directory exists.
   if (optind != argc - 1) {
     usage(1);
   }

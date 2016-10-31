@@ -89,7 +89,7 @@ void FS::AddPack(std::unique_ptr<Pack> pack) {
     std::vector<gsl::cstring_span> components = Split(folder.filename, "\\");
     for (gsl::cstring_span component : components) {
       if (strncmp(".", component.data(), component.size()) == 0) {
-        // For whatever reason, leading .'s are in some of the pack files.
+        // For whatever reason, leading .'s are in some of the packfiles.
         continue;
       } else if (strncmp("..", component.data(), component.size()) == 0) {
         fatal("directory has .. component: %.*s", int(sizeof(folder.filename)), folder.filename);
