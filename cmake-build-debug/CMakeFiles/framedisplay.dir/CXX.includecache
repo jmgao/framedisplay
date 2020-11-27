@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+C:/Users/FAMILY/CLionProjects/framedisplay/src/framedisplay.h
+
+C:/Users/FAMILY/CLionProjects/framedisplay/src/ougon_data.cpp
+ougon_framedisplay.h
+C:/Users/FAMILY/CLionProjects/framedisplay/src/ougon_framedisplay.h
+cstdio
+-
+cstdlib
+-
+cstring
+-
+
+C:/Users/FAMILY/CLionProjects/framedisplay/src/ougon_framedisplay.h
+framedisplay.h
+C:/Users/FAMILY/CLionProjects/framedisplay/src/framedisplay.h
+texture.h
+C:/Users/FAMILY/CLionProjects/framedisplay/src/texture.h
+string
+-
+map
+-
+list
+-
+
+C:/Users/FAMILY/CLionProjects/framedisplay/src/texture.h
+

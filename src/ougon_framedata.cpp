@@ -12,14 +12,16 @@ bool Ougon_Framedata::load(Ougon_Data* o_data, int character_id) {
   unsigned int size;
 
   if (o_data->get_frame_data(&data, &size, character_id) == 0) {
+    printf("failed to get frame data\n");
     return 0;
   }
 
+  printf("data : %s\n", data);
   if (memcmp(data, "ANM100", 6)) {
     return 0;
   }
 
-  unsigned int* anmptrs = (unsigned int*)(data + 8);
+  unsigned int* anmptrs = (unsigned int*)(data + 8); // old 8
 
   for (int i = 0; i < 250; ++i) {
     m_sequences[i].header = (Ougon_SequenceHeader*)(data + anmptrs[i]);
@@ -31,7 +33,7 @@ bool Ougon_Framedata::load(Ougon_Data* o_data, int character_id) {
     // process out junk frames
     for (int j = 0; j < count; ++j) {
       if (m_sequences[i].frames[j].duration == 0) {
-        int amount = count - j;
+        unsigned int amount = count - j;
         if (amount > 0) {
           memmove(&m_sequences[i].frames[j], &m_sequences[i].frames[j + 1], 0x60 * amount);
         }

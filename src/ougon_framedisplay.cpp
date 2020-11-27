@@ -18,7 +18,12 @@ static const Ougon_Character_Info ougon_character_info[] = {
     {"Lucifer", "FILES/CHAR/04.LZR"},  {"Chiester", "FILES/CHAR/05.LZR"},
     {"Ronove", "FILES/CHAR/06.LZR"},   {"Eva-Beatrice", "FILES/CHAR/07.LZR"},
     {"Virgilia", "FILES/CHAR/08.LZR"}, {"Beatrice", "FILES/CHAR/09.LZR"},
-    {"Jessica", "FILES/CHAR/11.LZR"}};
+    {"George", "FILES/CHAR/10.LZR"},   {"Jessica", "FILES/CHAR/11.LZR"},
+    {"Rosa", "FILES/CHAR/12.LZR"},  {"Erika", "FILES/CHAR/13.LZR"},
+    {"Dlanor", "FILES/CHAR/14.LZR"},  {"Willard", "FILES/CHAR/15.LZR"},
+    {"Bernkastel", "FILES/CHAR/16.LZR"},  {"Lambda", "FILES/CHAR/17.LZR"},
+    {"B.Battler", "FILES/CHAR/16.LZR"},
+};
 
 static const int ougon_ncharacters = sizeof(ougon_character_info) / sizeof(ougon_character_info[0]);
 
@@ -699,31 +704,37 @@ bool Ougon_FrameDisplay::init(const char* base_path) {
     return 0;
   }
 
+  printf("Init!\n");
+
   // hope for the best!
   m_base_path = strdup(base_path);
 
   m_data.open_patch("FILES/CHAR/DIFF.LZR", m_base_path);
 
-  m_ncharacters = 10;
+  m_ncharacters = ougon_ncharacters;
 
   // test for jessica while we're here.
-  {
-    char lzr_filename[2048];
-    sprintf(lzr_filename, "%s%s", m_base_path, ougon_character_info[10].filename);
-
-    FILE* file = fopen(lzr_filename, "rb");
-    if (file) {
-      fclose(file);
-      m_ncharacters = 11;
-    }
-  }
+//  {
+//    char lzr_filename[2048];
+//    sprintf(lzr_filename, "%s%s", m_base_path, ougon_character_info[10].filename);
+//
+//    FILE* file = fopen(lzr_filename, "rb");
+//    if (file) {
+//      fclose(file);
+//      m_ncharacters = 11;
+//    }
+//  }
 
   m_character = -1;
 
   set_character(0);
 
+  printf("m_data.loaded() : %d\n", m_data.loaded());
+  printf("m_framedata.loaded() : %d\n", m_framedata.loaded());
+
   m_initialized = m_data.loaded() && m_framedata.loaded();
 
+  m_initialized = true;
   if (!m_initialized) {
     ::free(m_base_path);
     m_base_path = 0;

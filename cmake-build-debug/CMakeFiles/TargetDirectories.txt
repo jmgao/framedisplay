@@ -1,0 +1,15 @@
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/CMakeFiles/framedisplay.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/CMakeFiles/edit_cache.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/CMakeFiles/rebuild_cache.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/zlib/CMakeFiles/zlib.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/zlib/CMakeFiles/zlibstatic.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/zlib/CMakeFiles/edit_cache.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/zlib/CMakeFiles/rebuild_cache.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/libpng/CMakeFiles/edit_cache.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/libpng/CMakeFiles/libpng-config_COPY.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/libpng/CMakeFiles/genfiles.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/libpng/CMakeFiles/png_static.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/libpng/CMakeFiles/libpng.pc_COPY.dir
+C:/Users/FAMILY/CLionProjects/framedisplay/cmake-build-debug/deps/libpng/CMakeFiles/rebuild_cache.dir

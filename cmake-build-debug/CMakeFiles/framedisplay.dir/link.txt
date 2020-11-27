@@ -1,0 +1,3 @@
+"C:\Program Files\JetBrains\CLion 2020.2.5\bin\cmake\win\bin\cmake.exe" -E rm -f CMakeFiles\framedisplay.dir/objects.a
+C:\PROGRA~2\MINGW-~1\I686-8~1.0-W\mingw32\bin\ar.exe cr CMakeFiles\framedisplay.dir/objects.a @CMakeFiles\framedisplay.dir\objects1.rsp
+C:\PROGRA~2\MINGW-~1\I686-8~1.0-W\mingw32\bin\G__~1.EXE  -static-libstdc++ -g   -static-libgcc -Wl,--whole-archive CMakeFiles\framedisplay.dir/objects.a -Wl,--no-whole-archive  -o framedisplay.exe -Wl,--out-implib,libframedisplay.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\framedisplay.dir\linklibs.rsp

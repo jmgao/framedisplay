@@ -87,6 +87,7 @@ bool Ougon_Data::decompress(unsigned char* data, unsigned int size, unsigned cha
   unsigned int read_data;
   unsigned char *dest, *dest_orig, *dest_end;
 
+  printf("ougon_Data decompress data : %s\n", data);
   if (memcmp(data, "LZLR", 4)) {
     return 0;
   }
@@ -235,7 +236,7 @@ bool Ougon_Data::open_pack(const char* filename, const char* base_path) {
 }
 
 bool Ougon_Data::get_frame_data(unsigned char** ddata, unsigned int* dsize, int character_id) {
-  if (m_patch_data && character_id < 10) {
+  if (m_patch_data) {
     unsigned int* ptrs = (unsigned int*)m_patch_data;
 
     if (character_id < 0) {
