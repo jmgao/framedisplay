@@ -10,19 +10,29 @@
 struct Ougon_Character_Info {
   const char* name;
   const char* filename;
+  const char* moveset_name;
 };
 
 static const Ougon_Character_Info ougon_character_info[] = {
-    {"Battler", "FILES/CHAR/00.LZR"},  {"Ange", "FILES/CHAR/01.LZR"},
-    {"Shannon", "FILES/CHAR/02.LZR"},  {"Kanon", "FILES/CHAR/03.LZR"},
-    {"Lucifer", "FILES/CHAR/04.LZR"},  {"Chiester", "FILES/CHAR/05.LZR"},
-    {"Ronove", "FILES/CHAR/06.LZR"},   {"Eva-Beatrice", "FILES/CHAR/07.LZR"},
-    {"Virgilia", "FILES/CHAR/08.LZR"}, {"Beatrice", "FILES/CHAR/09.LZR"},
-    {"George", "FILES/CHAR/10.LZR"},   {"Jessica", "FILES/CHAR/11.LZR"},
-    {"Rosa", "FILES/CHAR/12.LZR"},  {"Erika", "FILES/CHAR/13.LZR"},
-    {"Dlanor", "FILES/CHAR/14.LZR"},  {"Willard", "FILES/CHAR/15.LZR"},
-    {"Bernkastel", "FILES/CHAR/16.LZR"},  {"Lambda", "FILES/CHAR/17.LZR"},
-    {"B.Battler", "FILES/CHAR/16.LZR"},
+    {"Battler", "FILES/CHAR/00.LZR", "FILES/CHAR/00.ANZ"},
+    {"Ange", "FILES/CHAR/01.LZR", "FILES/CHAR/01.ANZ"},
+    {"Shannon", "FILES/CHAR/02.LZR", "FILES/CHAR/02.ANZ"},
+    {"Kanon", "FILES/CHAR/03.LZR", "FILES/CHAR/03.ANZ"},
+    {"Lucifer", "FILES/CHAR/04.LZR", "FILES/CHAR/04.ANZ"},
+    {"Chiester", "FILES/CHAR/05.LZR", "FILES/CHAR/05.ANZ"},
+    {"Ronove", "FILES/CHAR/06.LZR", "FILES/CHAR/06.ANZ"},
+    {"Eva-Beatrice", "FILES/CHAR/07.LZR","FILES/CHAR/07.ANZ"},
+    {"Virgilia", "FILES/CHAR/08.LZR", "FILES/CHAR/08.ANZ"},
+    {"Beatrice", "FILES/CHAR/09.LZR", "FILES/CHAR/09.ANZ"},
+    {"George", "FILES/CHAR/10.LZR", "FILES/CHAR/10.ANZ"},
+    {"Jessica", "FILES/CHAR/11.LZR", "FILES/CHAR/11.ANZ"},
+    {"Rosa", "FILES/CHAR/12.LZR", "FILES/CHAR/12.ANZ"},
+    {"Erika", "FILES/CHAR/13.LZR", "FILES/CHAR/13.ANZ"},
+    {"Dlanor", "FILES/CHAR/14.LZR", "FILES/CHAR/14.ANZ"},
+    {"Willard", "FILES/CHAR/15.LZR", "FILES/CHAR/15.ANZ"},
+    {"Bernkastel", "FILES/CHAR/16.LZR", "FILES/CHAR/16.ANZ"},
+    {"Lambda", "FILES/CHAR/17.LZR", "FILES/CHAR/17.ANZ"},
+    {"B.Battler", "FILES/CHAR/18.LZR","FILES/CHAR/18.ANZ"},
 };
 
 static const int ougon_ncharacters = sizeof(ougon_character_info) / sizeof(ougon_character_info[0]);
@@ -250,7 +260,7 @@ void Ougon_FrameDisplay::set_render_properties(Texture* texture, int seq_id, int
     return;
   }
 
-  Ougon_SpriteInfo* info = m_data.get_sprite_info(frame->sprite_id);
+  Ougon_SpriteInfo* info = m_sprite_data.get_sprite_info(frame->sprite_id);
   if (!info) {
     return;
   }
@@ -263,17 +273,19 @@ void Ougon_FrameDisplay::set_render_properties(Texture* texture, int seq_id, int
 void Ougon_FrameDisplay::render(const RenderProperties* properties) {
   Ougon_Frame* frame = m_framedata.get_frame(m_sequence, m_frame);
   if (!frame) {
+    printf("failed to get frame display::render\n");
     return;
   }
 
-  Ougon_SpriteInfo* info = m_data.get_sprite_info(frame->sprite_id);
+  Ougon_SpriteInfo* info = m_sprite_data.get_sprite_info(frame->sprite_id);
   if (!info) {
+    printf("failed to get sprite info display::render\n");
     return;
   }
 
   if (properties->display_sprite) {
     if (!m_texture) {
-      m_texture = m_data.get_sprite(frame->sprite_id);
+      m_texture = m_sprite_data.get_sprite(frame->sprite_id);
     }
     if (m_texture) {
       set_render_properties(m_texture, m_sequence, m_frame);
@@ -314,7 +326,7 @@ Clone* Ougon_FrameDisplay::make_clone() {
     return 0;
   }
 
-  Ougon_SpriteInfo* info = m_data.get_sprite_info(frame->sprite_id);
+  Ougon_SpriteInfo* info = m_sprite_data.get_sprite_info(frame->sprite_id);
   if (!info) {
     return 0;
   }
@@ -322,7 +334,7 @@ Clone* Ougon_FrameDisplay::make_clone() {
   Clone* clone = new Clone;
 
   // do the texture
-  Texture* texture = m_data.get_sprite(frame->sprite_id);
+  Texture* texture = m_sprite_data.get_sprite(frame->sprite_id);
   if (texture) {
     set_render_properties(texture, m_sequence, m_frame);
 
@@ -400,7 +412,7 @@ bool Ougon_FrameDisplay::save_current_sprite(const char* filename) {
     return 0;
   }
 
-  Texture* texture = m_data.get_sprite(frame->sprite_id);
+  Texture* texture = m_sprite_data.get_sprite(frame->sprite_id);
   bool retval = 0;
 
   if (texture) {
@@ -417,7 +429,7 @@ int Ougon_FrameDisplay::save_all_character_sprites(const char* directory) {
     return 0;
   }
 
-  int n = m_data.get_sprite_count();
+  int n = m_sprite_data.get_sprite_count();
   int count = 0;
 
   const char* name = get_character_name(m_character);
@@ -426,7 +438,7 @@ int Ougon_FrameDisplay::save_all_character_sprites(const char* directory) {
   }
 
   for (int i = 0; i < n; ++i) {
-    Texture* texture = m_data.get_sprite(i);
+    Texture* texture = m_sprite_data.get_sprite(i);
 
     if (texture) {
       char filename[2048];
@@ -461,12 +473,16 @@ void Ougon_FrameDisplay::set_character(int n) {
   }
 
   // unload images, frame data
+  m_sprite_data.free_pack();
   m_data.free_pack();
   m_framedata.free();
 
   // register new images, frame data
-  m_data.open_pack(ougon_character_info[n].filename, m_base_path);
+  m_sprite_data.open_pack(ougon_character_info[n].filename, m_base_path, true);
+  m_data.open_pack(ougon_character_info[n].moveset_name, m_base_path, false);
   m_framedata.load(&m_data, n);
+
+  printf("frameload complete\n");
 
   // finish up
   m_character = n;
@@ -566,47 +582,48 @@ void Ougon_FrameDisplay::render_frame_properties(bool detailed, int scr_width, i
   char strbuf[1024];
   char* blah = strbuf;
   *blah = '\0';
-  /*
+
   Ougon_Sequence *seq = m_framedata.get_sequence(m_sequence);
 
-  unsigned short *data = (unsigned short *)seq->header;
-  for (int i = 0; i < 0x44/16; ++i) {
-          sprintf(blah, "%4.4x %4.4x %4.4x %4.4x %4.4x %4.4x %4.4x %4.4x\n",
-                  data[0], data[1],
-                  data[2], data[3],
-                  data[4], data[5],
-                  data[6], data[7]);
-          blah += strlen(blah);
-          data += 8;
-  }
+//  unsigned short *data = (unsigned short *)seq->header;
+//  for (int i = 0; i < 0x44/16; ++i) {
+//          sprintf(blah, "%4.4x %4.4x %4.4x %4.4x %4.4x %4.4x %4.4x %4.4x\n",
+//                  data[0], data[1],
+//                  data[2], data[3],
+//                  data[4], data[5],
+//                  data[6], data[7]);
+//          blah += strlen(blah);
+//          data += 8;
+//  }
+//
+//  sprintf(blah, "%4.4x %4.4x\n\n",
+//          data[0], data[1]);
+//  blah += strlen(blah);
+//
+//  data = (unsigned short *)frame;
+//  for (int i = 0; i < 0x60/16; ++i) {
+//          sprintf(blah, "%4.4x %4.4x %4.4x %4.4x %4.4x %4.4x %4.4x %4.4x\n",
+//                  data[0], data[1],
+//                  data[2], data[3],
+//                  data[4], data[5],
+//                  data[6], data[7]);
+//          blah += strlen(blah);
+//          data += 8;
+//  }
 
-  sprintf(blah, "%4.4x %4.4x\n\n",
-          data[0], data[1]);
-  blah += strlen(blah);
+//  for (int i = 0; i < 0x12; ++i) {
+//          sprintf(blah, "%d\n", frame->unknown3[i]);
+//          blah += strlen(blah);
+//  }
 
-  data = (unsigned short *)frame;
-  for (int i = 0; i < 0x60/16; ++i) {
-          sprintf(blah, "%4.4x %4.4x %4.4x %4.4x %4.4x %4.4x %4.4x %4.4x\n",
-                  data[0], data[1],
-                  data[2], data[3],
-                  data[4], data[5],
-                  data[6], data[7]);
-          blah += strlen(blah);
-          data += 8;
-  }
-
-  for (int i = 0; i < 0x12; ++i) {
-          sprintf(blah, "%d\n", frame->unknown3[i]);
-          blah += strlen(blah);
-  }
-   */
 
   sprintf(blah, "Duration %d\n\n", frame->duration);
   blah += strlen(blah);
 
   if (frame->attack.prop1 != 0 || frame->attack.damage != 0) {
-    sprintf(blah, "Attack\n  Damage %d\n\n  Props\n  %2.2x %4.4x %4.4x\n\n",
-            frame->attack.damage * 3, frame->attack.prop1, frame->attack.prop3,
+    //sprintf(blah, "Attack\n  Damage %d\n\n  Props\n  %2.2x %4.4x %4.4x\n\n",
+    sprintf(blah, "Attack\n  Damage %d\n\n  Props\n  %x %x %x %x\n\n",
+            frame->attack.damage * 3, frame->attack.prop1, frame->attack.prop2, frame->attack.prop3,
             frame->attack.prop4);
     blah += strlen(blah);
   }
@@ -709,7 +726,7 @@ bool Ougon_FrameDisplay::init(const char* base_path) {
   // hope for the best!
   m_base_path = strdup(base_path);
 
-  m_data.open_patch("FILES/CHAR/DIFF.LZR", m_base_path);
+//  m_data.open_patch("FILES/CHAR/DIFF.LZR", m_base_path);
 
   m_ncharacters = ougon_ncharacters;
 
@@ -734,7 +751,6 @@ bool Ougon_FrameDisplay::init(const char* base_path) {
 
   m_initialized = m_data.loaded() && m_framedata.loaded();
 
-  m_initialized = true;
   if (!m_initialized) {
     ::free(m_base_path);
     m_base_path = 0;

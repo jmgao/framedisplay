@@ -20,6 +20,9 @@ class Ougon_Data {
   unsigned char* m_data;
   unsigned int m_size;
 
+  unsigned char* m_sprite_data;
+  unsigned int m_sprite_size;
+
   unsigned char* m_patch_data;
   unsigned int m_patch_size;
 
@@ -37,7 +40,7 @@ class Ougon_Data {
  public:
   bool open_patch(const char* filename, const char* base_path);
 
-  bool open_pack(const char* filename, const char* base_path);
+  bool open_pack(const char* filename, const char* base_path, bool isSprite);
 
   bool get_frame_data(unsigned char** ddata, unsigned int* dsize, int character_id);
 
@@ -154,6 +157,8 @@ class Ougon_FrameDisplay : public FrameDisplay {
   bool m_initialized;
 
   Ougon_Data m_data;
+  Ougon_Data m_sprite_data;
+
   Ougon_Framedata m_framedata;
 
   int m_subframe_base;

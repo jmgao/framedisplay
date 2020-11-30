@@ -21,7 +21,7 @@ bool Ougon_Framedata::load(Ougon_Data* o_data, int character_id) {
     return 0;
   }
 
-  unsigned int* anmptrs = (unsigned int*)(data + 8); // old 8
+  unsigned int* anmptrs = (unsigned int*)(data + 8);
 
   for (int i = 0; i < 250; ++i) {
     m_sequences[i].header = (Ougon_SequenceHeader*)(data + anmptrs[i]);

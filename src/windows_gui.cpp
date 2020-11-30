@@ -1158,7 +1158,7 @@ static void callback_command(HWND hWnd, int id, HWND src, UINT codeNotify) {
       do_open_file("MBAACC 0002.p%0002.p", callback_mbaacc);
       break;
     case IDM_FILE_OPEN_OUGON:
-      do_open_folder("Open Ougon Musou Kyoku folder...", callback_ougon);
+      do_open_folder("Open Ougon Musou Kyoku Cross folder...", callback_ougon);
       break;
     case IDM_FILE_CLOSE:
       free_framedisplay();
@@ -1394,7 +1394,7 @@ static void init_menu() {
   AppendMenu(hMenu, MF_STRING, IDM_FILE_OPEN_MBAC, "Open PC Melty Blood Act
   Cadenza...");
    */
-  AppendMenu(hMenu, MF_STRING, IDM_FILE_OPEN_OUGON, "Open PC Ougon Musou Kyoku");
+  AppendMenu(hMenu, MF_STRING, IDM_FILE_OPEN_OUGON, "Open PC Ougon Musou Kyoku Cross");
   AppendMenu(hMenu, MF_STRING, IDM_FILE_OPEN_MBAA, "Open PS2 Melty Blood Actress Again...");
   AppendMenu(hMenu, MF_STRING, IDM_FILE_OPEN_MBAACC, "Open PC Melty Blood AACC...");
   AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
