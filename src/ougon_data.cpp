@@ -151,9 +151,8 @@ bool Ougon_Data::decompress(unsigned char* data, unsigned int size, unsigned cha
 // ************************************************ DATA HANDLERS
 
 void Ougon_Data::init_sprite_info() {
-  unsigned int* ptrs = (unsigned int*)m_data;
-
-  unsigned char* data = m_data + ptrs[6];
+  unsigned int* ptrs = (unsigned int*)m_sprite_data;
+  unsigned char* data = m_sprite_data + ptrs[0];
   unsigned int* tex_ptrs = (unsigned int*)data;
   unsigned int ntex = tex_ptrs[0] / 4;
 
@@ -171,7 +170,6 @@ void Ougon_Data::init_sprite_info() {
   }
 
   m_sprite_count = ntex / 2;
-
   while (m_sprite_count > 0 && tex_ptrs[((m_sprite_count - 1) * 2) + 1] == 0) {
     m_sprite_count -= 1;
   }
@@ -221,13 +219,20 @@ bool Ougon_Data::load_and_decomp(const char* filename, const char* base_path, un
 }
 
 bool Ougon_Data::open_patch(const char* filename, const char* base_path) {
-  return load_and_decomp("FILES/CHAR/DIFF.LZR", base_path, &m_patch_data, &m_patch_size);
+  return load_and_decomp(filename, base_path, &m_patch_data, &m_patch_size);
 }
 
-bool Ougon_Data::open_pack(const char* filename, const char* base_path) {
-  bool retval = load_and_decomp(filename, base_path, &m_data, &m_size);
+bool Ougon_Data::open_pack(const char* filename, const char* base_path, bool isSprite) {
+  bool retval;
 
-  if (retval) {
+  if (!isSprite) {
+    retval = load_and_decomp(filename, base_path, &m_data, &m_size);
+  }
+  else {
+    retval = load_and_decomp(filename, base_path, &m_sprite_data, &m_sprite_size);
+  }
+
+  if (retval && isSprite) {
     init_sprite_info();
   }
 
@@ -235,7 +240,7 @@ bool Ougon_Data::open_pack(const char* filename, const char* base_path) {
 }
 
 bool Ougon_Data::get_frame_data(unsigned char** ddata, unsigned int* dsize, int character_id) {
-  if (m_patch_data && character_id < 10) {
+  if (m_patch_data) {
     unsigned int* ptrs = (unsigned int*)m_patch_data;
 
     if (character_id < 0) {
@@ -263,22 +268,24 @@ bool Ougon_Data::get_frame_data(unsigned char** ddata, unsigned int* dsize, int 
 }
 
 int Ougon_Data::get_sprite_count() {
-  if (!m_data) {
+  if (!m_sprite_data) {
     return 0;
   }
 
   return m_sprite_count;
 }
 
+int sprite_dummy = 6;
+
 Texture* Ougon_Data::get_sprite(int id) {
-  if (!m_data || id < 0 || id >= m_sprite_count) {
+  if (!m_sprite_data || id < 0 || id >= m_sprite_count) {
     return 0;
   }
 
-  unsigned int* ptrs = (unsigned int*)m_data;
+  unsigned int* ptrs = (unsigned int*)m_sprite_data;
 
-  unsigned char* data = m_data + ptrs[6];
-  unsigned int size = ptrs[7];
+  unsigned char* data = m_sprite_data + ptrs[0];
+  unsigned int size = ptrs[1];
   unsigned int* tex_ptrs = (unsigned int*)data;
 
   data += tex_ptrs[id * 2];
@@ -352,7 +359,7 @@ Texture* Ougon_Data::get_sprite(int id) {
 }
 
 Ougon_SpriteInfo* Ougon_Data::get_sprite_info(int id) {
-  if (!m_data || id < 0 || id >= m_sprite_count) {
+  if (!m_sprite_data || id < 0 || id >= m_sprite_count) {
     return 0;
   }
 
@@ -387,6 +394,10 @@ bool Ougon_Data::loaded() { return m_data != 0; }
 Ougon_Data::Ougon_Data() {
   m_data = 0;
   m_size = 0;
+
+  m_sprite_data = 0;
+  m_sprite_size = 0;
+
   m_patch_data = 0;
   m_patch_size = 0;
   m_sprite_info = 0;

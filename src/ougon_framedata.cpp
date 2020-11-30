@@ -31,7 +31,7 @@ bool Ougon_Framedata::load(Ougon_Data* o_data, int character_id) {
     // process out junk frames
     for (int j = 0; j < count; ++j) {
       if (m_sequences[i].frames[j].duration == 0) {
-        int amount = count - j;
+        unsigned int amount = count - j;
         if (amount > 0) {
           memmove(&m_sequences[i].frames[j], &m_sequences[i].frames[j + 1], 0x60 * amount);
         }
