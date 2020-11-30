@@ -1,3 +1,0 @@
-"C:\Program Files\JetBrains\CLion 2020.2.5\bin\cmake\win\bin\cmake.exe" -E rm -f CMakeFiles\zlib.dir/objects.a
-C:\PROGRA~2\MINGW-~1\I686-8~1.0-W\mingw32\bin\ar.exe cr CMakeFiles\zlib.dir/objects.a @CMakeFiles\zlib.dir\objects1.rsp
-C:\PROGRA~2\MINGW-~1\I686-8~1.0-W\mingw32\bin\gcc.exe  -g  -shared -o libzlib.dll -Wl,--out-implib,libzlib.dll.a -Wl,--major-image-version,1,--minor-image-version,2 -Wl,--whole-archive CMakeFiles\zlib.dir/objects.a -Wl,--no-whole-archive @CMakeFiles\zlib.dir\linklibs.rsp
